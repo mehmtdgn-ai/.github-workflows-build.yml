@@ -1,0 +1,28 @@
+name: APK Derle
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: gradle:8.7-jdk17
+
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+
+      - name: Android SDK kur
+        uses: android-actions/setup-android@v3
+
+      - name: APK derle
+        run: gradle assembleRelease --no-daemon
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: kanal-kutusu-apk
+          path: app/build/outputs/apk/release/*.apk
