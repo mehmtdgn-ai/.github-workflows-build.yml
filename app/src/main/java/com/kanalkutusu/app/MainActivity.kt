@@ -136,13 +136,15 @@ class ProxyServer(port: Int, private val assets: AssetManager) : NanoHTTPD("127.
         client.newCall(reqBuilder.build()).execute().use { upstream ->
             val bodyBytes = upstream.body?.bytes() ?: ByteArray(0)
             val contentType = upstream.header("Content-Type") ?: "application/octet-stream"
-            val looksLikeManifest = target.substringBefore('?').endsWith(".m3u8") ||
+            val finalUrl = upstream.request.url.toString()
+            val looksLikeManifest = finalUrl.substringBefore('?').endsWith(".m3u8") ||
+                target.substringBefore('?').endsWith(".m3u8") ||
                 contentType.contains("mpegurl", ignoreCase = true)
 
             val status = if (upstream.code == 206) Response.Status.PARTIAL_CONTENT else Response.Status.OK
 
             val response = if (looksLikeManifest) {
-                val rewritten = rewriteManifest(String(bodyBytes, Charsets.UTF_8), target)
+                val rewritten = rewriteManifest(String(bodyBytes, Charsets.UTF_8), finalUrl)
                 newFixedLengthResponse(status, "application/vnd.apple.mpegurl", rewritten)
             } else {
                 newFixedLengthResponse(status, contentType, ByteArrayInputStream(bodyBytes), bodyBytes.size.toLong())
