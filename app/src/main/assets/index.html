@@ -253,6 +253,19 @@
   }
 
   (function prefill(){
+    if(window.AndroidBridge){
+      try{
+        const saved = JSON.parse(window.AndroidBridge.load());
+        if(saved.host) el('f-host').value = saved.host;
+        if(saved.port) el('f-port').value = saved.port;
+        if(saved.user) el('f-user').value = saved.user;
+        if(saved.pass) el('f-pass').value = saved.pass;
+        if(saved.host && saved.user && saved.pass){
+          setTimeout(connect, 100);
+          return;
+        }
+      }catch(e){ /* no saved credentials yet */ }
+    }
     const p = new URLSearchParams(location.search);
     if(p.get('host')) el('f-host').value = p.get('host');
     if(p.get('port')) el('f-port').value = p.get('port');
@@ -327,6 +340,10 @@
       state.streams = Array.isArray(streams) ? streams : [];
       state.filtered = state.streams;
 
+      if(window.AndroidBridge){
+        try{ window.AndroidBridge.save(host, port, user, pass); }catch(e){}
+      }
+
       try{
         const p = new URLSearchParams({host, port, user, pass});
         history.replaceState(null, '', '?' + p.toString());
@@ -392,11 +409,14 @@
     renderChannels();
   }
 
-  el('search').addEventListener('input', applyFilter);
+  let searchDebounce = null;
+  el('search').addEventListener('input', function(){
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(applyFilter, 150);
+  });
 
   function renderChannels(){
     const grid = el('chan-grid');
-    grid.innerHTML = '';
     el('chan-count').textContent = state.filtered.length;
 
     if(state.filtered.length === 0){
@@ -404,17 +424,29 @@
       return;
     }
 
-    state.filtered.forEach((s, idx)=>{
-      const card = document.createElement('div');
-      card.className = 'chan-card';
-      card.tabIndex = 0;
+    var html = '';
+    for(var idx=0; idx<state.filtered.length; idx++){
+      var s = state.filtered[idx];
       var numLabel = (s.num !== undefined && s.num !== null) ? s.num : (idx+1);
-      card.innerHTML = '<span class="chan-num">' + numLabel + '</span><span class="chan-name">' + escapeHtml(s.name||'İsimsiz') + '</span>';
-      card.addEventListener('click', ()=>playChannel(idx));
-      card.addEventListener('keydown', e=>{ if(e.key==='Enter') playChannel(idx); });
-      grid.appendChild(card);
-    });
+      html += '<div class="chan-card" tabindex="0" data-idx="'+idx+'">' +
+              '<span class="chan-num">'+numLabel+'</span>' +
+              '<span class="chan-name">'+escapeHtml(s.name||'İsimsiz')+'</span>' +
+              '</div>';
+    }
+    grid.innerHTML = html;
   }
+
+  el('chan-grid').addEventListener('click', function(e){
+    var card = e.target.closest('.chan-card');
+    if(!card) return;
+    playChannel(parseInt(card.dataset.idx, 10));
+  });
+  el('chan-grid').addEventListener('keydown', function(e){
+    if(e.key !== 'Enter') return;
+    var card = e.target.closest('.chan-card');
+    if(!card) return;
+    playChannel(parseInt(card.dataset.idx, 10));
+  });
 
   const video = el('video');
   let hls = null;
