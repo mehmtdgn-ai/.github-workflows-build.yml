@@ -45,6 +45,9 @@ class MainActivity : Activity() {
 
         webView.webViewClient = WebViewClient()
         webView.webChromeClient = WebChromeClient()
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
+        webView.requestFocus()
 
         webView.loadUrl("http://127.0.0.1:$port/")
     }
@@ -77,14 +80,31 @@ class MainActivity : Activity() {
         throw RuntimeException("Yerel sunucu başlatılamadı", lastError)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            webView.evaluateJavascript(
-                "window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));", null
-            )
-            return true
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            val jsKey = when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> "ArrowLeft"
+                KeyEvent.KEYCODE_DPAD_RIGHT -> "ArrowRight"
+                KeyEvent.KEYCODE_DPAD_UP -> "ArrowUp"
+                KeyEvent.KEYCODE_DPAD_DOWN -> "ArrowDown"
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> "Enter"
+                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> "Escape"
+                else -> null
+            }
+            if (jsKey != null) {
+                val js = """
+                    (function(){
+                        var t = document.activeElement || document.body;
+                        var ev = new KeyboardEvent('keydown', {key:'$jsKey', bubbles:true, cancelable:true});
+                        t.dispatchEvent(ev);
+                        if('$jsKey' === 'Enter' && t && typeof t.click === 'function'){ t.click(); }
+                    })();
+                """.trimIndent()
+                webView.evaluateJavascript(js, null)
+                return true
+            }
         }
-        return super.onKeyDown(keyCode, event)
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onDestroy() {
