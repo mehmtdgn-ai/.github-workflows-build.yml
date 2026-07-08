@@ -88,7 +88,6 @@ class MainActivity : Activity() {
                 KeyEvent.KEYCODE_DPAD_UP -> "ArrowUp"
                 KeyEvent.KEYCODE_DPAD_DOWN -> "ArrowDown"
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> "Enter"
-                KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> "Escape"
                 else -> null
             }
             if (jsKey != null) {
@@ -97,10 +96,21 @@ class MainActivity : Activity() {
                         var t = document.activeElement || document.body;
                         var ev = new KeyboardEvent('keydown', {key:'$jsKey', bubbles:true, cancelable:true});
                         t.dispatchEvent(ev);
-                        if('$jsKey' === 'Enter' && t && typeof t.click === 'function'){ t.click(); }
                     })();
                 """.trimIndent()
                 webView.evaluateJavascript(js, null)
+                return super.dispatchKeyEvent(event)
+            }
+            if (event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                webView.evaluateJavascript(
+                    """
+                    (function(){
+                        var t = document.activeElement || document.body;
+                        t.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true, cancelable:true}));
+                    })();
+                    """.trimIndent(),
+                    null
+                )
                 return true
             }
         }
