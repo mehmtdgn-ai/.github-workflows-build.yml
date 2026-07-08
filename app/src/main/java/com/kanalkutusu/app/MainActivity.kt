@@ -6,6 +6,7 @@ import android.content.res.AssetManager
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -14,6 +15,7 @@ import fi.iki.elonen.NanoHTTPD
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
@@ -48,6 +50,7 @@ class MainActivity : Activity() {
         webView.isFocusable = true
         webView.isFocusableInTouchMode = true
         webView.requestFocus()
+        webView.addJavascriptInterface(CredentialBridge(), "AndroidBridge")
 
         webView.loadUrl("http://127.0.0.1:$port/")
     }
@@ -120,6 +123,35 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         proxyServer?.stop()
         super.onDestroy()
+    }
+
+    private inner class CredentialBridge {
+        private val prefs = getSharedPreferences("kanal_kutusu", MODE_PRIVATE)
+
+        @JavascriptInterface
+        fun save(host: String, port: String, user: String, pass: String) {
+            prefs.edit()
+                .putString("host", host)
+                .putString("port", port)
+                .putString("user", user)
+                .putString("pass", pass)
+                .apply()
+        }
+
+        @JavascriptInterface
+        fun load(): String {
+            val obj = JSONObject()
+            obj.put("host", prefs.getString("host", "") ?: "")
+            obj.put("port", prefs.getString("port", "") ?: "")
+            obj.put("user", prefs.getString("user", "") ?: "")
+            obj.put("pass", prefs.getString("pass", "") ?: "")
+            return obj.toString()
+        }
+
+        @JavascriptInterface
+        fun clear() {
+            prefs.edit().clear().apply()
+        }
     }
 }
 
