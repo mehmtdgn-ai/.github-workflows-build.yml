@@ -155,6 +155,15 @@
     font-family:'JetBrains Mono',monospace;
   }
 
+  body.mode-mobile .hint-bar{ display:none; }
+  .mobile-back-btn{
+    display:none; position:absolute; top:20px; left:20px; z-index:5;
+    width:44px; height:44px; border-radius:50%; border:none;
+    background:rgba(21,23,27,0.85); color:var(--text); font-size:20px;
+    align-items:center; justify-content:center; cursor:pointer;
+  }
+  body.mode-mobile .mobile-back-btn{ display:flex; }
+
   ::-webkit-scrollbar{ width:8px; }
   ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
 </style>
@@ -208,6 +217,7 @@
 </div>
 
 <div id="player" class="screen">
+  <button class="mobile-back-btn" id="btn-mobile-back">‹</button>
   <div class="player-status"><span class="live-dot"></span> <span id="p-status">Yükleniyor…</span></div>
   <div class="hint-bar">◀ ▶ kanal değiştir · Geri: liste</div>
   <video id="video" autoplay playsinline></video>
@@ -244,6 +254,9 @@
     categories:[], streams:[], filtered:[],
     activeCategoryId:"all", currentIndex:-1
   };
+
+  const deviceMode = new URLSearchParams(location.search).get('mode') || 'tv';
+  document.body.classList.add('mode-' + deviceMode);
 
   const el = id => document.getElementById(id);
   const screens = { login: el('login'), browse: el('browse'), player: el('player') };
@@ -301,6 +314,10 @@
   function streamUrl(streamId){
     const raw = `${state.base}/live/${encodeURIComponent(state.username)}/${encodeURIComponent(state.password)}/${streamId}.m3u8`;
     return proxied(raw);
+  }
+
+  function rawStreamUrl(streamId){
+    return `${state.base}/live/${encodeURIComponent(state.username)}/${encodeURIComponent(state.password)}/${streamId}.m3u8`;
   }
 
   el('btn-connect').addEventListener('click', connect);
@@ -456,6 +473,21 @@
     const s = state.filtered[index];
     if(!s) return;
     state.currentIndex = index;
+
+    if(window.PlayerBridge && typeof window.PlayerBridge.play === 'function'){
+      const channels = state.filtered.map(function(ch){
+        return {
+          name: ch.name || 'İsimsiz',
+          url: rawStreamUrl(ch.stream_id),
+          num: (ch.num !== undefined && ch.num !== null) ? String(ch.num) : ''
+        };
+      });
+      try{
+        window.PlayerBridge.play(JSON.stringify(channels), index);
+        return;
+      }catch(e){ /* fall through to in-page player if the bridge call fails */ }
+    }
+
     const url = streamUrl(s.stream_id);
 
     el('p-status').textContent = 'Yükleniyor…';
@@ -501,6 +533,7 @@
   }
 
   el('btn-back-list').addEventListener('click', backToList);
+  el('btn-mobile-back').addEventListener('click', backToList);
   function backToList(){
     if(hls){ hls.destroy(); hls = null; }
     video.removeAttribute('src');
